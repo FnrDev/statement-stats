@@ -1,4 +1,5 @@
 const XLSX = require('xlsx');
+const moment = require('moment');
 
 // Load the Excel file
 const filePath = './account_statement.xlsx'; // Update with your file path
@@ -11,20 +12,23 @@ const worksheet = workbook.Sheets[sheetName];
 // Get data from the worksheet
 const data = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
 
-// Function to convert Excel serial number to Date
+// Updated Excel to JS Date conversion function using moment
 function excelDateToJSDate(serial) {
-    const utc_days  = Math.floor(serial - 25569);
-    const utc_value = utc_days * 86400;                                        
-    const date_info = new Date(utc_value * 1000);
-    return new Date(date_info.getFullYear(), date_info.getMonth(), date_info.getDate());
+    if (!serial) return null;
+    
+    // Excel's epoch starts from 1900-01-01
+    const utc_days = Math.floor(serial - 25569);
+    const milliseconds = utc_days * 24 * 60 * 60 * 1000;
+    return moment(milliseconds);
 }
 
 // Add classification to each row
 let totalCredit = 0;
 let totalDebit = 0;
 
-const startDate = new Date('2024-09-29');
-const endDate = new Date('2024-11-01');
+// Update date range definitions using moment
+const startDate = moment('2024-09-29');
+const endDate = moment('2024-11-01');
 
 const results = data.map((row, index) => {
     // Skip header row
@@ -32,11 +36,11 @@ const results = data.map((row, index) => {
 
     const excelDate = row[3];
     const transactionDate = excelDateToJSDate(excelDate);
-    const value = parseFloat(row[5]);
+    const value = row[5];
     const classification = value < 0 ? 'Debit' : 'Credit';
     
-    // Update totals only if date is within range
-    if (transactionDate >= startDate && transactionDate <= endDate) {
+    // Update date comparison using moment
+    if (transactionDate && transactionDate.isBetween(startDate, endDate, 'day', '[]')) {
         if (classification === 'Credit') {
             totalCredit += value;
         } else {
@@ -83,17 +87,17 @@ const top10Debits = debitTransactions
 
 // Log the final totals
 console.log('\nFinal Totals:');
-console.log('Date Range:', '29/09/2024 to 01/11/2024');
+console.log('Date Range:', startDate.format('DD/MM/YYYY'), 'to', endDate.format('DD/MM/YYYY'));
 console.log('Total Credit:', totalCredit.toFixed(2), 'BHD');
 console.log('Total Debit:', totalDebit.toFixed(2), 'BHD');
 
 // Log top 10 transactions
 console.log('\nTop 10 Credit Transactions:');
 top10Credits.forEach((trans, index) => {
-    console.log(`${index + 1}. ${trans.date.toLocaleDateString()} - ${trans.description}: ${trans.amount.toFixed(2)} BHD`);
+    console.log(`${index + 1}. ${trans.date.format('DD/MM/YYYY')} - ${trans.description}: ${trans.amount.toFixed(2)} BHD`);
 });
 
 console.log('\nTop 10 Debit Transactions:');
 top10Debits.forEach((trans, index) => {
-    console.log(`${index + 1}. ${trans.date.toLocaleDateString()} - ${trans.description}: ${trans.amount.toFixed(2)} BHD`);
+    console.log(`${index + 1}. ${trans.date.format('DD/MM/YYYY')} - ${trans.description}: ${trans.amount.toFixed(2)} BHD`);
 });
